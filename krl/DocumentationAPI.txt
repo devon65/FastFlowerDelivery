@@ -1,0 +1,83 @@
+Front End
+
+    Create Order
+        localhost:8080/sky/event/{eci}/{edi}/create/order?itemID={itemID}&user={username}&address={City}
+            returns:
+                {
+                  "directives": [
+                    {
+                      "options": {
+                        "For": "{itemID}",
+                        "OrderID": "ck8wlxw1l0qtzbakzhrpt09pi"     <----- Front end needs this
+                      },
+                      "name": "CreatingOrderPico",
+                      "meta": {
+                        "rid": "flower_shop",
+                        "rule_name": "create_order",
+                        "txn_id": "ck8wlxw1j0qtybakzfww73nw6",
+                        "eid": "__testing"
+                      }
+                    },
+                    {
+                      "options": {
+                        "pico": {
+                          "parent_eci": "BSR6tUnAcdtDvemQPEwRMb",
+                          "name": "Order No. 3",
+                          "id": "ck8wlxw220qu0bakz4s020f9z",
+                          "eci": "A3tvACqAkVruHWashwHPU1"
+                        }
+                      },
+                      "name": "Pico_Created",
+                      "meta": {
+                        "rid": "io.picolabs.wrangler",
+                        "rule_name": "createChild",
+                        "txn_id": "ck8wlxw1j0qtybakzfww73nw6",
+                        "eid": "__testing"
+                      }
+                    }
+                  ]
+                }
+    Check Orders
+        localhost:8080/sky/cloud/{eci}/flower_shop/orders
+            returns:
+            [
+                {
+                  "orderID": "ck8wj8ab40kjqbakz3wn47gxp",
+                  "itemID": "101",
+                  "status": "OnMyWay",
+                  "driver": "Pedro"
+                },
+                {
+                  "orderID": "ck8wkvfc80nhvbakz2w38g0i3",
+                  "itemID": "Another",
+                  "status": "WorkingOnIt",
+                  "driver": "Pedro"
+                },
+                {
+                  "orderID": "ck8wlxw1l0qtzbakzhrpt09pi",
+                  "itemID": "Yo",
+                  "status": "open",
+                  "driver": ""
+                }
+            ] 
+        localhost:8080/sky/cloud/{eci}/flower_shop/orders?orderID={orderID}
+            returns:
+                [
+                    {
+                      "orderID": "ck8wj8ab40kjqbakz3wn47gxp",
+                      "itemID": "101",
+                      "status": "OnMyWay",
+                      "driver": "Pedro"
+                    }
+                ]
+
+Back End
+
+    Change the status of an order
+        localhost:8080/sky/event/{orderECI}/{eid}/change/status?status={close/open/etc}
+        
+    
+    Accept the order
+        localhost:8080/sky/event/{orderECI}/{eid}/order/accept?driver={nameOfDriver}
+
+    
