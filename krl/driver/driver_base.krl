@@ -9,9 +9,35 @@ ruleset driver_base {
         
         use module driver_gossip
         use module driver_profile alias profile
+        share available_orders
     }
     global {
         text_from = "16013854081"
+
+        dummy_driver = {"name": "Devon Howard", "notify_number": "12345678901"}
+        dummy_order1 = {"orderID": "123abc", "itemID": "Roses", "status":"open",
+                       "customerAddress": "121+N+State+St%2C+Orem%2C+UT+84057",
+                       "flowerShopAddress": "669+E+800+N%2C+Provo%2C+UT%2C+84606",
+                       "driver":dummy_driver}
+
+        dummy_order2 = {"orderID": "123abc2", "itemID": "Roses", "status":"closed",
+        "customerAddress": "121+N+State+St%2C+Orem%2C+UT+84057",
+        "flowerShopAddress": "669+E+800+N%2C+Provo%2C+UT%2C+84606",
+        "driver":dummy_driver}
+
+        available_orders = function() {
+            {"123abc": dummy_order1, "123abc2":dummy_order2}
+        }
+    }
+
+    rule accept_order {
+        select when driver order_accepted
+        send_directive("order_selected", true)
+    }
+
+    rule order_delivered {
+        select when driver order_delivered
+        send_directive("order_updated", true)
     }
    
     rule process_new_order {
