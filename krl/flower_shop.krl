@@ -24,7 +24,7 @@ ruleset flower_shop{
                                     {"name": "ordersByOrderID", "args" : ["orderID"]}
                                   ],
                     "events" :[
-                        {"domain" : "create", "type" : "order", "attrs" : ["itemID", "address", "user"]},
+                        {"domain" : "create", "type" : "order", "attrs" : ["itemID", "address", "buyer"]},
                         {"domain" : "status", "type":"changed", "attrs" : ["orderID", "status"]},
                         {"domain" : "reset", "type" : "info"}]
                     }
@@ -63,15 +63,15 @@ ruleset flower_shop{
         select when create order 
         pre{
             itemID = event:attr("itemID")
-            user = event:attr("user")
+            buyer = event:attr("buyer")
             address = event:attr("address")
 
             orderID = random:uuid()
 
             myWellKnownRX = subscription:wellKnown_Rx(){"id"}.klog("Store wellknown ECI "); 
 
-            rand =  random:integer(subscription:established("Tx_role", "Driver").length()-1).klog("initial random number")
-            randomDriver = subscription:established("Tx_role", "Driver")[rand]{"Tx"}.klog("Initial driverECI")
+            // rand =  random:integer(subscription:established("Tx_role", "Driver").length()-1).klog("initial random number")
+            // randomDriver = subscription:established("Tx_role", "Driver")[rand]{"Tx"}.klog("Initial driverECI")
         }
         send_directive("CreatingOrderPico", {"For": itemID, "OrderID" : orderID})
         always{
@@ -82,10 +82,10 @@ ruleset flower_shop{
                             "name" : "Order No. " + ent:orderIDs,
                             "color": "#a3921c", 
                             "address" : address,
-                            "user": user,
+                            "buyer": buyer,
                             "orderID" : orderID,
-                            "driverEci" : randomDriver,
-                            "storeEci" : myWellKnownRX,
+                            "driverECI" : randomDriver,
+                            "storeECI" : myWellKnownRX,
                             "rids" : ["flower_order"],
                         }
         } 
@@ -100,27 +100,63 @@ ruleset flower_shop{
             orderID = event:attr("orderID")
             orderEci = event:attr("eci").klog("Order Eci from OrderPico")
             itemID = event:attr("itemID")
-            driverEci = event:attr("driverEci").klog("Driver Eci from OrderPico")
+            buyer = event:attr("buyer") 
+            // driverEci = event:attr("driverEci").klog("Driver Eci from OrderPico")
             orderName = event:attr("name")
-            order = {}.put("orderID", orderID).put("itemID", itemID).put("status", "open").put("driver", "")
+            order = {}.put("orderID", orderID).put("itemID", itemID).put("status", "open").put("driver", "").put("buyer", buyer)
         }
-        //create a subscription with the driver
         event:send(
             {"eci": orderEci, 
             "eid" : "createSubtoDriver",
-            "domain" : "connect",
-            "type" : "driver",
+            "domain" : "initialize",
+            "type" : "data",
             "attrs" : {
-                "driverEci" : driverEci,
+                "driverECI" : driverEci,
                 "orderID" : orderID,
-                "itemID" : itemID
+                "itemID" : itemID,
+                "buyer" : buyer
             }
         })
+
+
         always{
             ent:orderStatus := ent:orderStatus.defaultsTo([]);
-            ent:orderStatus := ent:orderStatus.append(order)
+            ent:orderStatus := ent:orderStatus.append(order);
+            raise notify event "everyone" attributes{
+                "orderID" : orderID,
+                "orderECI" : orderEci,
+                "itemID" : itemID,
+                "buyer" : buyer
+            }
         }
     }
+
+    rule notifyEveryone{
+        select when notify everyone
+        foreach subscription:established() setting(sub)
+        pre{
+            orderID = event:attr("orderID")
+            orderECI = event:attr("orderECI")
+            itemID = event:attr("itemID")
+            buyer = event:attr("buyer")
+        }
+        if (sub{"Tx_role"} == "Driver") then
+            event:send({
+                "eci": sub{"Tx"},
+                "eid" : "newOrderNotification",
+                "domain": "order",
+                "type" : "created",
+                "attrs":{
+                    "orderECI" : orderECI,
+                    "orderID" : orderID,
+                    "itemID" : itemID,
+                    "buyer" : buyer
+                }
+            })
+        
+    }
+
+
 
     rule orderStatusChanged{
         select when status changed
@@ -147,4 +183,4 @@ ruleset flower_shop{
 
     }
   }
-}  
+}

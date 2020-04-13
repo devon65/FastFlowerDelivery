@@ -12,7 +12,7 @@ ruleset flower_order{
         use module io.picolabs.wrangler alias wrangler
         use module io.picolabs.subscription alias subscription  
         
-        shares __testing, test, checkStatus
+        shares __testing, test, checkStatus, orderInfo
         
     }
   
@@ -40,7 +40,7 @@ ruleset flower_order{
         }
 
         orderInfo = function(){
-            {}.put("orderID", ent:orderID).put("itemID", ent:itemID).put("status", ent:status).put("driver", ent:driver)
+            {}.put("orderID", ent:orderID).put("itemID", ent:itemID).put("status", ent:status).put("driver", ent:driver).put("buyer", ent:buyer)
         }
 
     }
@@ -67,66 +67,51 @@ ruleset flower_order{
         } 
     }
 
-   
+    //This rule only runs when the subscription from a driver has been added. IF the status of order is not open, no other driver can subscribe to it.
     rule acceptOrder{
-        select when order accept
+        select when wrangler subscription_added where event:attr("bus"){"Tx_role"} == "Driver" && ent:status == "open"
         pre{
             driver = event:attr("driver").defaultsTo("unknown") // name 
             status = event:attr("status").defaultsTo("accepted")
+            subInfo = event:attr("bus").klog("Bus")
         }
-        if (driver == null) then
-            send_directive("\"driver\" parameter not given")
-        notfired{
-            ent:status := "accepted";
-            ent:driver := driver;
-            raise update event "status" attributes{
-                "status" : status,
-                "driver" : driver
-            }
+        always{
+            ent:status := "accepted"
         }
     }
 
 
-
     // Create Order Pico
     rule orderCreated{
-        select when connect driver
+        select when initialize data
         pre{
-            driverEci = event:attr("driverEci")
+            driverEci = event:attr("driverECI")
             orderID = event:attr("orderID")
             itemID = event:attr("itemID")
+            buyer = event:attr("buyer")
         } 
         always{
             ent:status := ent:status.defaultsTo("open");
             ent:orderID := orderID;
             ent:driver := "";
             ent:itemID := itemID;
-            raise wrangler event "sendSubscription" attributes{
-                "driverEci" : driverEci
-            }
+            ent:buyer := buyer
             
         }
-        
     }
 
 
-  rule sendSubscriptions{
-    select when wrangler sendSubscription
-    pre{
-      eci = event:attr("driverEci").klog("Subscribe to this Driver wellknown")
+    //Accept subscriptions    
+    rule autoAccetSubscriptions{
+        select when wrangler inbound_pending_subscription_added where ent:status == "open"
+        pre{
+            driver = event:attr("driverName")
+        }
+        always{
+            ent:driver := driver;
+            raise wrangler event "pending_subscription_approval" attributes event:attrs
+        }
     }
-    
-    always{
-      raise wrangler event "subscription" attributes{
-        "name":"Order",
-        "wellKnown_Tx": eci,
-        "Tx_role": "Driver",
-        "Rx_role": "Order"
-      }
-    }
-  }
  
- 
-  
   
 }
