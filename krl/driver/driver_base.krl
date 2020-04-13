@@ -11,11 +11,6 @@ ruleset driver_base {
         use module driver_profile alias profile
     }
     global {
-        
-        text_to = function(){
-            result = profile:profile_info()
-            return result{"notify_number"}
-        }
         text_from = "16013854081"
     }
    
@@ -37,7 +32,7 @@ ruleset driver_base {
 
     rule add_order_to_list {
         select when order add_to_list 
-        
+
     }
 
     rule notify_of_new_order {
