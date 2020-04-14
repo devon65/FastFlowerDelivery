@@ -1,7 +1,7 @@
 ruleset store_profile {
     meta {
         shares profile_info
-        provides store_name, store_address, notify_number, username, storeEci
+        provides store_name, store_address, notify_number, username, storeEci, profile_info
     }
     global {
         default_address = "669+E+800+N%2C+Provo%2C+UT%2C+84606"
@@ -29,7 +29,7 @@ ruleset store_profile {
                      "name": store_name(),
                      "notify_number": notify_number(),
                      "username": username(),
-                     "storeEci": storeEci()
+                     "storeEci": meta:picoId
             }
             return result
         }
