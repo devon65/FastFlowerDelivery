@@ -94,14 +94,14 @@ ruleset flower_order{
             order = event:attr("order")
         } 
         always{
-            ent:orderID := order("orderID")
-            ent:itemID := order("itemID")
-            ent:status := order("status")
-            ent:driver := order("driver")
-            ent:buyer := order("buyer")
-            ent:orderEci := order("orderEci")
-            ent:address := order("address")
-            ent:store := order("store")
+            ent:orderID := order{"orderID"}
+            ent:itemID := order{"itemID"}
+            ent:status := order{"status"}
+            ent:driver := order{"driver"}
+            ent:buyer := order{"buyer"}
+            ent:orderEci := order{"orderEci"}
+            ent:address := order{"address"}
+            ent:store := order{"store"}
         }
     }
 
