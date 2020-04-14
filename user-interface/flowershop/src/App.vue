@@ -1,9 +1,8 @@
 <template>
   <div id="app">
     <div id="nav">
-      <!-- <router-link to="/Provo">Provo</router-link> |
-      <router-link to="/Lehi">Lehi</router-link> | 
-      <router-link to="/SLC">Salt Lake City</router-link> -->
+      <router-link to="/">Flower Shop</router-link> |
+      <router-link to="/driver">Driver</router-link>
     </div>
     <router-view />
   </div>
