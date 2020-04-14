@@ -63,7 +63,7 @@ ruleset flower_shop{
             itemID = event:attr("itemID")
             buyer = event:attr("buyer")
             address = event:attr("address")
-            orderID = random:uuid() + ent:orderIDs.defaultsTo(0)
+            orderID = random:uuid() + ":" + ent:orderIDs.defaultsTo(0)
             store = profile:profile_info()
             name = "Order No. " + ent:orderIDs.defaultsTo(0)
             order = {   "itemID" : itemID,

@@ -116,20 +116,20 @@ ruleset driver_gossip {
 
     // Edit this rule to account for orders instead of temperature messages
     rule collect_internal_orders {
-        select when order collect_internally 
+        select when gossip collect_internally 
         pre{
             message = event:attr("message")
             store_id = message{["store", "storeEci"]}
 
-            new_msg_num = rumor{"orderID"}.split(re#:#)[1].as("Number")
+            new_msg_num = message{"orderID"}.split(re#:#)[1].as("Number")
             old_msg_num = ent:my_seen_messages{store_id}.as("Number").defaultsTo(0)
             current_msg = calculate_current_msg_num(store_id, 
                 old_msg_num.klog("************************oldMessageNumber:"), 
                 new_msg_num.klog("************************newMessageNumber:"))
         }
         always{
-            ent:rumor_messages{[store_id, message_number]} := message.klog("New Order Message: ")
-            ent:my_seen_messages{store_id} := message_number
+            ent:rumor_messages{[store_id, new_msg_num]} := message.klog("New Order Message: ")
+            ent:my_seen_messages{store_id} := current_msg
         }
     }
 
@@ -160,7 +160,7 @@ ruleset driver_gossip {
             sender_eci = message_info{"sender_eci"}
             message = message_info{"rumor"}
             message_number = message{"orderID"}.split(re#:#)[1].as("Number")
-            message_store_id = message{"StoreID"}
+            store_id = message{["store", "storeEci"]}
         }
         if message then
             event:send({"eci": eci, 
@@ -168,7 +168,7 @@ ruleset driver_gossip {
                         "type":"rumor", 
                         "attrs":{"message": message, "sender_eci": sender_eci}}.klog("Sending Rumor Message: "))
         fired {
-            ent:seen_messages{[eci, message_store_id]} := message_number
+            ent:seen_messages{[eci, store_id]} := message_number
         }
     }
 
@@ -191,7 +191,7 @@ ruleset driver_gossip {
         select when gossip rumor where ent:is_gossip_paused.defaultsTo(false) == false
         pre{
             rumor = event:attr("message").klog("Received Rumor Message: ")
-            store_id = rumor{"StoreID"}
+            store_id = rumor{["store", "storeEci"]}
             sender = event:attr("sender_eci")
 
             new_msg_num = rumor{"orderID"}.split(re#:#)[1].as("Number")

@@ -106,7 +106,7 @@ ruleset App {
                             "is_driver": true,
                             "distance_threshold":distance_threshold, 
                             "number":phone_number,
-                            "color": "#ffff00",
+                            "color": "#31b0c4",
                             "rids": ["driver_profile", "driver_base", "driver_gossip"]  }
         }
     }

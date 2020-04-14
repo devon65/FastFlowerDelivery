@@ -1,15 +1,16 @@
 ruleset driver_base {
     meta {
-        // use module twilio_v2 alias twilio
-        //     with account_sid = keys:twilio{"account_sid"}
-        //         auth_token =  keys:twilio{"auth_token"}
+        use module api_keys
+        use module twilio_v2 alias twilio
+            with account_sid = keys:twilio_account_sid
+                auth_token = keys:twilio_auth_token
         
-        // use module map_quest alias map_quest
-        //     with consumer_key = keys:map_quest{"consumer_key"}
+        use module map_quest alias map_quest
+            with consumer_key = keys:map_quest
         
-        use module driver_gossip
+        use module driver_gossip alias gossip
         use module driver_profile alias profile
-        share available_orders
+        share orders
     }
     global {
         text_from = "16013854081"
@@ -31,17 +32,13 @@ ruleset driver_base {
 
         filter_order = function(order){
             order_distance = map_quest:get_address_dist(profile:driver_address(), order{"address"})
-            in_range = order_distance <= profile:distance_threshold()
+            in_range = order_distance.klog("Distance in miles:") <= profile:distance_threshold().klog("Driver distance threshold:")
             is_open = order{status} == "open"
             is_owned = order{["driver", "username"]} == profile:username()
-            return is_owned || (in_range && is_open)
+            return is_owned.klog("is_owned: ") || (in_range.klog("in_range: ") && is_open.klog("is_open: "))
         }
 
-        // filter_all_orders = function(messages_map){
-
-        // }
-
-        available_orders = function() {
+        orders = function() {
             {"123abc": dummy_order1, "123abc2":dummy_order2}
         }
     }
@@ -70,24 +67,31 @@ ruleset driver_base {
         }
         
         fired {
-            raise order event "collect_internally" attributes {
+            raise gossip event "collect_internally" attributes {
                 "message": order
             }
-            raise order event "yas" attributes{
-
+            raise driver event "add_order" attributes{
+                "order": order
             }
         }
     }
 
-    rule filter_all_orders {
-        select when driver filter_orders
-        foreach {"a" : 1, "b" : 2, "c" : 3} setting (storeId, order)
+    rule clear_and_filter_all_orders {
+        select when driver clear_and_filter_orders
+        always{
+            ent:driver_orders := {}
+            raise driver event "add_filtered_orders"
+        }
+    }
+
+    rule filter_all_orders_then_add {
+        select when driver add_filtered_orders
+        foreach gossip:get_all_order_messages setting (storeId, order)
             foreach orders setting (order_num, order)
                 if filter_order(order) then noop()
                 fired {
-
+                    ent:driver_orders{order{"orderID"}} := order
                 }
-
     }
 
     rule add_order_to_list {
@@ -100,7 +104,7 @@ ruleset driver_base {
             raise driver event "notify" attributes {
                 "order": order
             }
-            ent:drivers_orders{orderID} := order
+            ent:driver_orders{orderID} := order
         }
     }
 
@@ -113,5 +117,14 @@ ruleset driver_base {
         }
         twilio:send_sms(notify_number, text_from, message.klog("Text Message: "))
     }  
+
+    rule autoAcceptSubscriptions{
+        select when wrangler inbound_pending_subscription_added
+        pre{
+        }
+        fired{
+            raise wrangler event "pending_subscription_approval" attributes event:attrs
+        }
+    }
   
 }
