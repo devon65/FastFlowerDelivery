@@ -119,9 +119,13 @@ ruleset driver_gossip {
         select when order collect_internally 
         pre{
             message = event:attr("message")
-            store_id = message{"store_id"}
-            message_number = //message{"order_number"} 
-            message_id = //message{"MessageID"}   is this necessary?
+            store_id = message{["store", "storeEci"]}
+
+            new_msg_num = rumor{"orderID"}.split(re#:#)[1].as("Number")
+            old_msg_num = ent:my_seen_messages{store_id}.as("Number").defaultsTo(0)
+            current_msg = calculate_current_msg_num(store_id, 
+                old_msg_num.klog("************************oldMessageNumber:"), 
+                new_msg_num.klog("************************newMessageNumber:"))
         }
         always{
             ent:rumor_messages{[store_id, message_number]} := message.klog("New Order Message: ")
@@ -155,7 +159,7 @@ ruleset driver_gossip {
             eci = message_info{"eci"}
             sender_eci = message_info{"sender_eci"}
             message = message_info{"rumor"}
-            message_number = message{"MessageID"}.split(re#:#)[1].as("Number")
+            message_number = message{"orderID"}.split(re#:#)[1].as("Number")
             message_store_id = message{"StoreID"}
         }
         if message then
@@ -190,7 +194,7 @@ ruleset driver_gossip {
             store_id = rumor{"StoreID"}
             sender = event:attr("sender_eci")
 
-            new_msg_num = rumor{"MessageID"}.split(re#:#)[1].as("Number")
+            new_msg_num = rumor{"orderID"}.split(re#:#)[1].as("Number")
             old_msg_num = ent:my_seen_messages{store_id}.as("Number").defaultsTo(0)
             current_msg = calculate_current_msg_num(store_id, 
                 old_msg_num.klog("************************oldMessageNumber:"), 

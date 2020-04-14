@@ -40,27 +40,32 @@ ruleset flower_order{
         }
 
         orderInfo = function(){
-            {}.put("orderID", ent:orderID).put("itemID", ent:itemID).put("status", ent:status).put("driver", ent:driver).put("buyer", ent:buyer)
+            {}.put("orderID", ent:orderID)
+            .put("itemID", ent:itemID)
+            .put("status", ent:status)
+            .put("driver", ent:driver)
+            .put("buyer", ent:buyer)
+            .put("orderEci", ent:orderEci)
+            .put("address", ent:address)
+            .put("store", ent:store)
         }
 
     }
 
 
     rule updateStatus{
-        select when update status
+        select when order update_status
         pre{
             order_status = event:attr("status").defaultsTo("open")
-            driver = event:attr("driver").defaultsTo("")
         } 
         event:send({"eci" : wrangler:parent_eci(), 
                     "eid" : "changeStatus", 
-                    "domain": "status",
-                    "type" : "changed",
+                    "domain": "store",
+                    "type" : "order_update",
                     "attrs" :{
                         "orderID": ent:orderID,
                         "status": order_status,
                         "driver": ent:driver,
-                        "itemID" : ent:itemID
                     }})
         always{
             ent:status := order_status
@@ -71,32 +76,32 @@ ruleset flower_order{
     rule acceptOrder{
         select when wrangler subscription_added where event:attr("bus"){"Tx_role"} == "Driver" && ent:status == "open"
         pre{
-            driver = event:attr("driver").defaultsTo("unknown") // name 
-            status = event:attr("status").defaultsTo("accepted")
+            driver = event:attr("driver").defaultsTo("unknown") // driver info 
+            status = event:attr("status").defaultsTo("enroute")
             subInfo = event:attr("bus").klog("Bus")
         }
         always{
-            ent:status := "accepted"
+            ent:driver := driver
+            ent:status := status
         }
     }
 
 
     // Create Order Pico
     rule orderCreated{
-        select when initialize data
+        select when order initialize
         pre{
-            driverEci = null
-            orderID = event:attr("orderID")
-            itemID = event:attr("itemID")
-            buyer = event:attr("buyer")
+            order = event:attr("order")
         } 
         always{
-            ent:status := ent:status.defaultsTo("open");
-            ent:orderID := orderID;
-            ent:driver := "";
-            ent:itemID := itemID;
-            ent:buyer := buyer
-            
+            ent:orderID := order("orderID")
+            ent:itemID := order("itemID")
+            ent:status := order("status")
+            ent:driver := order("driver")
+            ent:buyer := order("buyer")
+            ent:orderEci := order("orderEci")
+            ent:address := order("address")
+            ent:store := order("store")
         }
     }
 
@@ -108,7 +113,7 @@ ruleset flower_order{
             driver = event:attr("driverName")
         }
         always{
-            ent:driver := driver;
+            // ent:driver := driver;
             raise wrangler event "pending_subscription_approval" attributes event:attrs
         }
     }

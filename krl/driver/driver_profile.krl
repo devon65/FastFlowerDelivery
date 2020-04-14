@@ -1,7 +1,7 @@
 ruleset driver_profile {
     meta {
         shares profile_info
-        provides driver_name, driver_address, distance_threshold, notify_number, username, public_eci
+        provides driver_name, driver_address, distance_threshold, notify_number, username, driverEci
     }
     global {
         default_address = "669+E+800+N%2C+Provo%2C+UT%2C+84606"
@@ -24,8 +24,8 @@ ruleset driver_profile {
         username = function(){
             return ent:username
         }
-        public_eci = function(){
-            return ent:public_eci
+        driverEci = function(){
+            return subscription:wellKnown_Rx(){"id"}.klog("Driver wellknown ECI ")
         }
 
         profile_info = function() {
@@ -33,8 +33,8 @@ ruleset driver_profile {
                      "name": driver_name(),
                      "distance_threshold": distance_threshold(),
                      "notify_number": notify_number(),
-                     "username": ent:username,
-                     "public_eci": ent:public_eci
+                     "username": username(),
+                     "driverEci": driverEci()
             }
             return result
         }
@@ -49,21 +49,18 @@ ruleset driver_profile {
             t_notify_number = event:attr("notify_number").defaultsTo(notify_number())
 
             t_username =  ent:username.defaultsTo(event:attr("username"))
-            t_public_eci = ent:public_eci.defaultsTo(event:attr("public_eci"))
         }
         send_directive("say", {"data":{"address": t_address, 
                                         "name":t_name,
                                         "distance_threshold":t_distance_thresh, 
                                         "notify_number":t_notify_number,
-                                        "username":t_username,
-                                        "public_eci":t_public_eci}})
+                                        "username":t_username}})
         always{
             ent:address := t_address
             ent:name := t_name
             ent:distance_thresh := t_distance_thresh
             ent:notify_number := t_notify_number
             ent:username := t_username
-            ent:public_eci := t_public_eci
         }
     }
   

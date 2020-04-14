@@ -61,8 +61,7 @@ ruleset App {
                         "attrs":{"name": store_name,
                                 "username": username,
                                 "address": store_address,
-                                "number":phone_number,
-                                "public_eci": eci}})
+                                "number":phone_number}})
 
         fired{
             ent:stores{[name, "eci"]} := eci
@@ -132,8 +131,7 @@ ruleset App {
                                 "username": username,
                                 "address":driver_address, 
                                 "distance_threshold":distance_threshold, 
-                                "number":phone_number,
-                                "public_eci": eci}})
+                                "number":phone_number}})
 
         fired{
             ent:drivers{[name, "eci"]} := eci

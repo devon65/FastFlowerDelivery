@@ -1,7 +1,7 @@
 ruleset store_profile {
     meta {
         shares profile_info
-        provides store_name, store_address, notify_number, username, public_eci
+        provides store_name, store_address, notify_number, username, storeEci
     }
     global {
         default_address = "669+E+800+N%2C+Provo%2C+UT%2C+84606"
@@ -20,16 +20,16 @@ ruleset store_profile {
         username = function(){
             return ent:username
         }
-        public_eci = function(){
-            return ent:public_eci
+        storeEci = function(){
+            return subscription:wellKnown_Rx(){"id"}.klog("Store wellknown ECI ")
         }
 
         profile_info = function() {
             result = {"address": store_address(),
                      "name": store_name(),
                      "notify_number": notify_number(),
-                     "username": ent:username,
-                     "public_eci": ent:public_eci
+                     "username": username(),
+                     "storeEci": storeEci()
             }
             return result
         }
@@ -43,19 +43,16 @@ ruleset store_profile {
             t_notify_number = event:attr("notify_number").defaultsTo(notify_number())
 
             t_username =  ent:username.defaultsTo(event:attr("username"))
-            t_public_eci = ent:public_eci.defaultsTo(event:attr("public_eci"))
         }
         send_directive("say", {"data":{"address": t_address, 
                                         "name":t_name,
                                         "notify_number":t_notify_number,
-                                        "username":t_username,
-                                        "public_eci":t_public_eci}})
+                                        "username":t_username}})
         always{
             ent:address := t_address
             ent:name := t_name
             ent:notify_number := t_notify_number
             ent:username := t_username
-            ent:public_eci := t_public_eci
         }
     }
   
