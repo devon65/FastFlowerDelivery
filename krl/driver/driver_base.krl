@@ -1,29 +1,33 @@
 ruleset driver_base {
     meta {
-        use module twilio_v2 alias twilio
-            with account_sid = keys:twilio{"account_sid"}
-                auth_token =  keys:twilio{"auth_token"}
+        // use module twilio_v2 alias twilio
+        //     with account_sid = keys:twilio{"account_sid"}
+        //         auth_token =  keys:twilio{"auth_token"}
         
-        use module map_quest alias map_quest
-            with consumer_key = keys:map_quest{"consumer_key"}
+        // use module map_quest alias map_quest
+        //     with consumer_key = keys:map_quest{"consumer_key"}
         
-        use module driver_gossip
-        use module driver_profile alias profile
+        // use module driver_gossip
+        // use module driver_profile alias profile
         share available_orders
     }
     global {
         text_from = "16013854081"
 
         dummy_driver = {"name": "Devon Howard", "notify_number": "12345678901"}
-        dummy_order1 = {"orderID": "123abc", "itemID": "Roses", "status":"open",
-                       "customerAddress": "121+N+State+St%2C+Orem%2C+UT+84057",
-                       "flowerShopAddress": "669+E+800+N%2C+Provo%2C+UT%2C+84606",
-                       "driver":dummy_driver}
+        dummy_order1 = {"orderID": "123abc",
+                        "itemID": "Roses", 
+                        "status":"open",
+                        "customerAddress": "121+N+State+St%2C+Orem%2C+UT+84057",
+                        "flowerShopAddress": "669+E+800+N%2C+Provo%2C+UT%2C+84606",
+                        "driver":dummy_driver}
 
-        dummy_order2 = {"orderID": "123abc2", "itemID": "Roses", "status":"closed",
-        "customerAddress": "121+N+State+St%2C+Orem%2C+UT+84057",
-        "flowerShopAddress": "669+E+800+N%2C+Provo%2C+UT%2C+84606",
-        "driver":dummy_driver}
+        dummy_order2 = {"orderID": "123abc2", 
+                        "itemID": "Roses", 
+                        "status":"closed",
+                        "customerAddress": "121+N+State+St%2C+Orem%2C+UT+84057",
+                        "flowerShopAddress": "669+E+800+N%2C+Provo%2C+UT%2C+84606",
+                        "driver":dummy_driver}
 
         available_orders = function() {
             {"123abc": dummy_order1, "123abc2":dummy_order2}
@@ -32,6 +36,9 @@ ruleset driver_base {
 
     rule accept_order {
         select when driver order_accepted
+        pre{
+
+        }
         send_directive("order_selected", true)
     }
 
