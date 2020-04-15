@@ -56,20 +56,27 @@ ruleset flower_order{
     rule updateStatus{
         select when order update_status
         pre{
-            order_status = event:attr("status").defaultsTo("open")
+            order_status = event:attr("status")
         } 
+        if order_status then noop()
+        fired{
+            ent:status := order_status
+            raise order event "notify_store"
+        } 
+    }
+
+    rule notifyStoreOfUpdate{
+        select when order notify_store
         event:send({"eci" : wrangler:parent_eci(), 
                     "eid" : "changeStatus", 
                     "domain": "store",
                     "type" : "order_update",
                     "attrs" :{
                         "orderID": ent:orderID,
-                        "status": order_status,
-                        "driver": ent:driver,
-                    }})
-        always{
-            ent:status := order_status
-        } 
+                        "status": ent:status,
+                        "driver": ent:driver
+                    }
+        })
     }
 
     rule acceptOrder{
@@ -91,7 +98,8 @@ ruleset flower_order{
                 "wellKnown_Tx": driver_eci,
                 "Tx_role": "Driver",
                 "Rx_role": "Order"
-              }
+            }
+            raise order event "notify_store"
         }
     }
 

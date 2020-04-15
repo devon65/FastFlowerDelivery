@@ -50,6 +50,13 @@ ruleset driver_base {
             is_accepted = result{"directives"}[0]{"options"}
             return is_accepted.klog("accept_order function result: ")
         }
+
+        is_delivery_update_allowed = function(orderID){
+            order = orders(orderID)
+            is_owned = order{["driver", "username"]} == profile:username()
+            needs_update = not (order{"status"} == "delivered")
+            return (order && is_owned && needs_update)
+        }
     }
 
     rule accept_order {
@@ -75,8 +82,41 @@ ruleset driver_base {
         select when driver order_delivered
         pre{
             orderID = event:attr("orderID")
+            is_update_needed = is_delivery_update_allowed(orderID)
+            response = is_update_needed => {"updated":true } | {"updated":false, "message": "delivery cannot be marked as complete due to permissions or is already delivered"}
         }
-        send_directive("order_updated", {"updated":true})
+        send_directive("order_updated", response)
+        always{
+            raise driver event "update_order_status" attributes{
+                "orderID": orderID
+            } if is_update_needed
+        }
+    }
+
+    rule update_order_status {
+        select when driver update_order_status
+        pre{
+            orderID = event:attr("orderID")
+            order = orders(orderID)
+            order_eci = order{"orderEci"}
+            status = "delivered"
+            updated_order = order.put("status", status)
+        }
+        if order_eci then
+        event:send({"eci" : order_eci, 
+                    "eid" : "changeOrderStatus", 
+                    "domain": "order",
+                    "type" : "update_status",
+                    "attrs" :{
+                        "status": status
+                    }
+        })
+        fired{
+            ent:driver_orders{orderID} := updated_order
+            raise gossip event "update_message" attributes{
+                "message": ent:driver_orders{orderID}
+            }
+        }
     }
    
     rule process_new_order {
