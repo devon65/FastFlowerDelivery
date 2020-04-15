@@ -1,5 +1,7 @@
 ruleset store_profile {
     meta {
+        use module io.picolabs.subscription alias subscription
+
         shares profile_info
         provides store_name, store_address, notify_number, username, storeEci, profile_info
     }

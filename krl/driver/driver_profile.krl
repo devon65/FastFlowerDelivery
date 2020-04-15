@@ -1,7 +1,9 @@
 ruleset driver_profile {
     meta {
+        use module io.picolabs.subscription alias subscription
+
         shares profile_info
-        provides driver_name, driver_address, distance_threshold, notify_number, username, driverEci
+        provides driver_name, driver_address, distance_threshold, notify_number, username, driverEci, profile_info
     }
     global {
         default_address = "669+E+800+N%2C+Provo%2C+UT%2C+84606"
@@ -45,7 +47,7 @@ ruleset driver_profile {
         pre{
             t_address = event:attr("address").defaultsTo(driver_address())
             t_name = event:attr("name").defaultsTo(driver_name())
-            t_distance_thresh = event:attr("distance_threshold").as("Number").defaultsTo(distance_threshold())
+            t_distance_thresh = event:attr("distance_threshold").defaultsTo(distance_threshold()).as("Number")
             t_notify_number = event:attr("notify_number").defaultsTo(notify_number())
 
             t_username =  ent:username.defaultsTo(event:attr("username"))
@@ -61,6 +63,7 @@ ruleset driver_profile {
             ent:distance_thresh := t_distance_thresh
             ent:notify_number := t_notify_number
             ent:username := t_username
+            schedule driver event "clear_and_filter_orders" at time:add(time:now(), {"seconds":0})
         }
     }
   

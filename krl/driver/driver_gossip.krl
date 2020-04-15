@@ -114,7 +114,6 @@ ruleset driver_gossip {
         }
     }
 
-    // Edit this rule to account for orders instead of temperature messages
     rule collect_internal_orders {
         select when gossip collect_internally 
         pre{
@@ -130,6 +129,19 @@ ruleset driver_gossip {
         always{
             ent:rumor_messages{[store_id, new_msg_num]} := message.klog("New Order Message: ")
             ent:my_seen_messages{store_id} := current_msg
+        }
+    }
+
+    rule update_gossip_message {
+        select when gossip update_message
+        pre{
+            message = event:attr("message")
+            store_id = message{["store", "storeEci"]}
+            new_msg_num = message{"orderID"}.split(re#:#)[1].as("Number")
+        }
+        if (message.isnull() || store_id.isnull() || new_msg_num.isnull()) then noop()
+        notfired{
+            ent:rumor_messages{[store_id, new_msg_num]} := message.klog("Updated Order Message: ")
         }
     }
 
@@ -199,8 +211,10 @@ ruleset driver_gossip {
             current_msg = calculate_current_msg_num(store_id, 
                 old_msg_num.klog("************************oldMessageNumber:"), 
                 new_msg_num.klog("************************newMessageNumber:"))
+
+            already_has_this_message = rumor_messages{[store_id, new_msg_num]}
         }
-        if rumor then noop()
+        if (rumor && not already_has_this_message) then noop()
         fired{
             ent:rumor_messages{[store_id, new_msg_num]} := rumor
             ent:my_seen_messages{store_id} := current_msg.klog("**********************************message_number")

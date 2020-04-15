@@ -31,31 +31,50 @@ ruleset driver_base {
                         "driver":dummy_driver}
 
         filter_order = function(order){
-            order_distance = map_quest:get_address_dist(profile:driver_address(), order{"address"})
-            in_range = order_distance.klog("Distance in miles:") <= profile:distance_threshold().klog("Driver distance threshold:")
-            is_open = order{status} == "open"
+            order_distance = map_quest:get_address_dist(profile:driver_address(), order.klog("order to filter: "){"address"})
+            in_range = (order_distance.klog("Distance in miles:") <= profile:distance_threshold().klog("Driver distance threshold:"))
+            is_open = order{"status"} == "open"
             is_owned = order{["driver", "username"]} == profile:username()
             return is_owned.klog("is_owned: ") || (in_range.klog("in_range: ") && is_open.klog("is_open: "))
         }
 
-        orders = function() {
-            {"123abc": dummy_order1, "123abc2":dummy_order2}
+        orders = function(orderID) {
+            (orderID.isnull() || (orderID == "")) => ent:driver_orders.values().defaultsTo([]) | ent:driver_orders{orderID}.defaultsTo([])
+        }
+
+        accept_order = function(order_eci) {
+            accept_order_url = <<http://localhost:8080/sky/event/#{order_eci}/flower/order/accept_driver>>
+            result = http:get(accept_order_url, qs = {
+                "driver": profile:profile_info()
+            }){"content"}.decode().klog("Get Request result: ")
+            is_accepted = result{"directives"}[0]{"options"}
+            return is_accepted.klog("accept_order function result: ")
         }
     }
 
     rule accept_order {
         select when driver order_accepted
         pre{
-            orderId = event:attr("orderId")
-            orderEci = available_orders(){orderId}{"orderEci"}
+            orderID = event:attr("orderID")
+            order = orders(orderID)
+            order_eci = order{"orderEci"}
+            order_accepted = order_eci => accept_order(order_eci) | {"accepted":false}
+            is_accepted = order_accepted{"accepted"}.klog("Accept Order Successful: ")
+            updated_order = order_accepted{"updated_order"}
         }
-        send_directive("order_accepted", {"accepted":true})
+        send_directive("is_order_accepted", order_accepted)
+        always{
+            ent:driver_orders{orderID} := updated_order if updated_order
+            raise gossip event "update_message" attributes{
+                "message": ent:driver_orders{orderID}
+            } if updated_order
+        }
     }
 
     rule order_delivered {
         select when driver order_delivered
         pre{
-            orderId = event:attr("orderId")
+            orderID = event:attr("orderID")
         }
         send_directive("order_updated", {"updated":true})
     }
@@ -86,8 +105,8 @@ ruleset driver_base {
 
     rule filter_all_orders_then_add {
         select when driver add_filtered_orders
-        foreach gossip:get_all_order_messages setting (storeId, order)
-            foreach orders setting (order_num, order)
+        foreach gossip:get_all_order_messages() setting (orders, storeId)
+            foreach orders.klog("All Order Messages") setting (order, order_num)
                 if filter_order(order) then noop()
                 fired {
                     ent:driver_orders{order{"orderID"}} := order
@@ -98,7 +117,7 @@ ruleset driver_base {
         select when driver add_order where filter_order(event:attr("order"))
         pre{
             order = event:attr("order")
-            orderID = order("orderID")
+            orderID = order{"orderID"}
         }
         always{
             raise driver event "notify" attributes {
@@ -113,7 +132,7 @@ ruleset driver_base {
         pre{
             name = profile:driver_name()
             notify_number = profile:notify_number()
-            message = <<Hey there #{name}! There is a new order available for delivery.>>
+            message = <<Hey there #{name}! There's a new flower order available for delivery.>>
         }
         twilio:send_sms(notify_number, text_from, message.klog("Text Message: "))
     }  
