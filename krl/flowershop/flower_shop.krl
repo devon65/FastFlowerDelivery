@@ -11,6 +11,7 @@ ruleset flower_shop{
         
         use module io.picolabs.wrangler alias wrangler
         use module io.picolabs.subscription alias subscription  
+        use module store_profile alias profile
         
         shares __testing, test, orders, ordersByOrderID
         
@@ -35,14 +36,11 @@ ruleset flower_shop{
         }
 
         orders = function(orderID){
-            (orderID.isnull() || (orderID == "")) => ent:orderStatus | ordersByOrderID(orderID)
+            (orderID.isnull() || (orderID == "")) => ent:orderStatus.values() | ordersByOrderID(orderID)
         }
 
         ordersByOrderID = function(orderID){
-            result = ent:orderStatus.filter(function(a){
-                a{"orderID"} == orderID
-            });
-            result
+            ent:orderStatus{orderID}
         }
 
     }
@@ -65,80 +63,65 @@ ruleset flower_shop{
             itemID = event:attr("itemID")
             buyer = event:attr("buyer")
             address = event:attr("address")
-
-            orderID = random:uuid()
-
-            myWellKnownRX = subscription:wellKnown_Rx(){"id"}.klog("Store wellknown ECI "); 
-
+            orderID = random:uuid() + ":" + ent:orderIDs.defaultsTo(0)
+            store = profile:profile_info()
+            name = "Order No. " + ent:orderIDs.defaultsTo(0)
+            order = {   "itemID" : itemID,
+                        "address" : address,
+                        "buyer": buyer,
+                        "orderID" : orderID,
+                        "driver" : null,
+                        "status" : "open",
+                        "store" : store
+                    }
+            // myWellKnownRX = subscription:wellKnown_Rx(){"id"}.klog("Store wellknown ECI "); 
             // rand =  random:integer(subscription:established("Tx_role", "Driver").length()-1).klog("initial random number")
             // randomDriver = subscription:established("Tx_role", "Driver")[rand]{"Tx"}.klog("Initial driverECI")
         }
         send_directive("CreatingOrderPico", {"For": itemID, "OrderID" : orderID})
         always{
-            ent:orderIDs := ent:orderIDs.defaultsTo(0);
-            ent:orderIDs := ent:orderIDs + 1;
             raise wrangler event "child_creation"
-                attributes{ "itemID" : itemID,
-                            "name" : "Order No. " + ent:orderIDs,
+                attributes{ "name" : name,
                             "color": "#a3921c", 
-                            "address" : address,
-                            "buyer": buyer,
-                            "orderID" : orderID,
-                            "driverECI" : randomDriver,
-                            "storeECI" : myWellKnownRX,
+                            "order": order,
                             "rids" : ["flower_order"],
                         }
+            ent:orderIDs := ent:orderIDs.defaultsTo(0) + 1;
         } 
-
-
     }
 
     //Stores the new order and connects the orderPico to the Driver
     rule store_new_order{
         select when wrangler child_initialized
         pre{
-            orderID = event:attr("orderID")
+            order = event:attr("order")
+            orderID = order{"orderID"}
             orderEci = event:attr("eci").klog("Order Eci from OrderPico")
-            itemID = event:attr("itemID")
-            buyer = event:attr("buyer") 
-            // driverEci = event:attr("driverEci").klog("Driver Eci from OrderPico")
             orderName = event:attr("name")
-            order = {}.put("orderID", orderID).put("itemID", itemID).put("status", "open").put("driver", "").put("buyer", buyer)
+            editedOrder = order.put("orderEci", orderEci)
         }
         event:send(
             {"eci": orderEci, 
             "eid" : "createSubtoDriver",
-            "domain" : "initialize",
-            "type" : "data",
+            "domain" : "order",
+            "type" : "initialize",
             "attrs" : {
-                "driverECI" : driverEci,
-                "orderID" : orderID,
-                "itemID" : itemID,
-                "buyer" : buyer
+                "order": editedOrder
             }
         })
-
-
         always{
-            ent:orderStatus := ent:orderStatus.defaultsTo([]);
-            ent:orderStatus := ent:orderStatus.append(order);
-            raise notify event "everyone" attributes{
-                "orderID" : orderID,
-                "orderECI" : orderEci,
-                "itemID" : itemID,
-                "buyer" : buyer
+            ent:orderStatus{orderID} := order
+            raise store event "notify_drivers" attributes{
+                "order" : editedOrder
             }
         }
     }
 
     rule notifyEveryone{
-        select when notify everyone
+        select when store notify_drivers
         foreach subscription:established() setting(sub)
         pre{
-            orderID = event:attr("orderID")
-            orderECI = event:attr("orderECI")
-            itemID = event:attr("itemID")
-            buyer = event:attr("buyer")
+            order = event:attr("order")
         }
         if (sub{"Tx_role"} == "Driver") then
             event:send({
@@ -147,10 +130,7 @@ ruleset flower_shop{
                 "domain": "order",
                 "type" : "created",
                 "attrs":{
-                    "orderECI" : orderECI,
-                    "orderID" : orderID,
-                    "itemID" : itemID,
-                    "buyer" : buyer
+                    "order": order
                 }
             })
         
@@ -159,28 +139,23 @@ ruleset flower_shop{
 
 
     rule orderStatusChanged{
-        select when status changed
+        select when store order_update
         pre{
             orderID = event:attr("orderID")
-            itemID = event:attr("itemID")
             orderStatus = event:attr("status")
             driver = event:attr("driver")
-            order = {}.put("orderID", orderID).put("itemID", itemID).put("status", orderStatus).put("driver", driver)
         }
         always{
-            ent:orderStatus := ent:orderStatus.filter(function(a){
-                a{"orderID"}.klog("oderIDinArray") != orderID.klog("orderID given")
-            }).klog("After");
-            ent:orderStatus := ent:orderStatus.append(order);
+            ent:orderStatus{[orderID, "status"]} := orderStatus
+            ent:orderStatus{[orderID, "driver"]} := driver
         }
     }
  
     rule resetAll{
         select when reset info
         always{
-            ent:orderStatus := [];
-            ent:orderIDs := 0;
-
+            ent:orderStatus := {};
+            ent:orderID := 0;
     }
   }
 }
