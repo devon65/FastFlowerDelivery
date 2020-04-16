@@ -219,6 +219,9 @@ ruleset driver_gossip {
             ent:rumor_messages{[store_id, new_msg_num]} := rumor
             ent:my_seen_messages{store_id} := current_msg.klog("**********************************message_number")
             ent:seen_messages{[sender, store_id]} := new_msg_num
+            raise driver event "add_order" attributes{
+                "order": rumor
+            }
         }
     }
 
